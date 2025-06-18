@@ -113,5 +113,16 @@ def upload():
 def root():
     return jsonify({"message": "Plant Disease Prediction API 🌿"}), 200
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    os.makedirs("models", exist_ok=True)
+    gdown.download(f"https://drive.google.com/uc?id={DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
+
+else:
+    print("Model already exists — skipping download.")
+
