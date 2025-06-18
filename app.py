@@ -5,6 +5,19 @@ import numpy as np
 import tensorflow as tf
 import uuid
 import json
+import gdown
+
+# Path to your model
+MODEL_PATH = "models/plant_disease_recog_model_pwp.keras"
+
+# Your file ID from Google Drive
+DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
+
+# Automatically download model if not present
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    os.makedirs("models", exist_ok=True)
+    gdown.download(f"https://drive.google.com/uc?id={DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
 
 app = Flask(__name__)
 CORS(app)
