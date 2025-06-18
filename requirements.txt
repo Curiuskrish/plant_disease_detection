@@ -39,8 +39,6 @@ six==1.17.0
 soupsieve==2.7
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
-tensorflow==2.19.0
-tensorflow-io-gcs-filesystem==0.31.0
 termcolor==3.1.0
 tqdm==4.67.1
 typing_extensions==4.14.0
