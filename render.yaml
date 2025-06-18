@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: plant-disease-api
+    env: python
+    buildCommand: ""
+    startCommand: python app.py
