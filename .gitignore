@@ -1,2 +1,8 @@
 venv/
-models/plant_disease_recog_model_pwp.keras
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.keras
+.DS_Store
+uploadimages/
