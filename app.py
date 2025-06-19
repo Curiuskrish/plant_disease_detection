@@ -8,16 +8,21 @@ from flask_cors import CORS
 import gdown
 
 # --- CONFIGURATION ---
-MODEL_PATH = "models/plant_disease_model.h5"  # Using .h5 format for better compatibility
-DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"  # Replace with the actual .h5 model file ID from Google Drive
+MODEL_PATH = "models/plant_disease_model.h5"
+DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
 
-# --- DOWNLOAD MODEL IF NEEDED ---
+# --- DOWNLOAD MODEL SAFELY ---
 if not os.path.exists(MODEL_PATH):
     print("🔄 Downloading model from Google Drive...")
     os.makedirs("models", exist_ok=True)
-    gdown.download(f"https://drive.google.com/uc?id={DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
+    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
+
+    # Validate if the model is an actual HDF5 file
+    if os.path.getsize(MODEL_PATH) < 1000000:  # less than ~1MB is suspicious
+        raise ValueError("Downloaded file is too small. Likely not a valid model. Check Google Drive permissions.")
 else:
     print("✅ Model already exists. Skipping download.")
 
@@ -28,18 +33,23 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- LOAD MODEL & LABELS ---
 print("🔁 Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    print("❌ Error loading model:", str(e))
+    raise
 
 with open(LABELS_PATH, 'r') as f:
     plant_disease = json.load(f)
 
-labels = list(plant_disease.values())  # Ensure it matches model output order
+labels = list(plant_disease.values())
 
 # --- UTILITIES ---
 def extract_features(image_path):
     image = tf.keras.utils.load_img(image_path, target_size=(160, 160))
     img_array = tf.keras.utils.img_to_array(image)
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+    img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
 def predict(image_path):
@@ -79,5 +89,5 @@ def serve_image(filename):
 
 # --- MAIN ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # 👈 this is important
+    port = int(os.environ.get("PORT", 10000))  # Render uses PORT env
     app.run(host="0.0.0.0", port=port)
