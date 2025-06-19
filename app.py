@@ -1,100 +1,64 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-import numpy as np
-import tensorflow as tf
 import uuid
 import json
+import numpy as np
+import tensorflow as tf
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import gdown
 
-# Path to your model
-MODEL_PATH = "models/plant_disease_recog_model_pwp.keras"
+# --- CONFIGURATION ---
+MODEL_PATH = "models/plant_disease_model.h5"  # Using .h5 format for better compatibility
+DRIVE_FILE_ID = "1FQawUM3MgYtEXAMPLE_ID_HERE"  # Replace with the actual .h5 model file ID from Google Drive
+UPLOAD_FOLDER = "uploadimages"
+LABELS_PATH = "plant_disease.json"
 
-# Your file ID from Google Drive
-DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
-
-# Automatically download model if not present
+# --- DOWNLOAD MODEL IF NEEDED ---
 if not os.path.exists(MODEL_PATH):
-    print("Downloading model from Google Drive...")
+    print("🔄 Downloading model from Google Drive...")
     os.makedirs("models", exist_ok=True)
     gdown.download(f"https://drive.google.com/uc?id={DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
+else:
+    print("✅ Model already exists. Skipping download.")
 
+# --- APP INITIALIZATION ---
 app = Flask(__name__)
 CORS(app)
-
-UPLOAD_FOLDER = 'uploadimages'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Load the model and labels
-model = tf.keras.models.load_model("models/plant_disease_recog_model_pwp.keras")
+# --- LOAD MODEL & LABELS ---
+print("🔁 Loading model...")
+model = tf.keras.models.load_model(MODEL_PATH)
 
-labels = [
-    'Apple___Apple_scab',
-    'Apple___Black_rot',
-    'Apple___Cedar_apple_rust',
-    'Apple___healthy',
-    'Background_without_leaves',
-    'Blueberry___healthy',
-    'Cherry___Powdery_mildew',
-    'Cherry___healthy',
-    'Corn___Cercospora_leaf_spot Gray_leaf_spot',
-    'Corn___Common_rust',
-    'Corn___Northern_Leaf_Blight',
-    'Corn___healthy',
-    'Grape___Black_rot',
-    'Grape___Esca_(Black_Measles)',
-    'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)',
-    'Grape___healthy',
-    'Orange___Haunglongbing_(Citrus_greening)',
-    'Peach___Bacterial_spot',
-    'Peach___healthy',
-    'Pepper,_bell___Bacterial_spot',
-    'Pepper,_bell___healthy',
-    'Potato___Early_blight',
-    'Potato___Late_blight',
-    'Potato___healthy',
-    'Raspberry___healthy',
-    'Soybean___healthy',
-    'Squash___Powdery_mildew',
-    'Strawberry___Leaf_scorch',
-    'Strawberry___healthy',
-    'Tomato___Bacterial_spot',
-    'Tomato___Early_blight',
-    'Tomato___Late_blight',
-    'Tomato___Leaf_Mold',
-    'Tomato___Septoria_leaf_spot',
-    'Tomato___Spider_mites Two-spotted_spider_mite',
-    'Tomato___Target_Spot',
-    'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
-    'Tomato___Tomato_mosaic_virus',
-    'Tomato___healthy'
-]
-
-with open("plant_disease.json", 'r') as f:
+with open(LABELS_PATH, 'r') as f:
     plant_disease = json.load(f)
 
-@app.route('/uploadimages/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+labels = list(plant_disease.values())  # Ensure it matches model output order
 
+# --- UTILITIES ---
 def extract_features(image_path):
     image = tf.keras.utils.load_img(image_path, target_size=(160, 160))
-    feature = tf.keras.utils.img_to_array(image)
-    feature = np.expand_dims(feature, axis=0)
-    return feature
+    img_array = tf.keras.utils.img_to_array(image)
+    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+    return img_array
 
 def predict(image_path):
     features = extract_features(image_path)
     prediction = model.predict(features)
-    index = np.argmax(prediction)
-    label = labels[index]
+    index = int(np.argmax(prediction))
+    label = labels[index] if index < len(labels) else "Unknown"
     description = plant_disease.get(str(index), "No description available.")
     return label, description
 
+# --- ROUTES ---
+@app.route('/')
+def home():
+    return jsonify({"message": "🌿 Plant Disease Detection API running successfully"}), 200
+
 @app.route('/upload/', methods=['POST'])
-def upload():
+def upload_image():
     if 'img' not in request.files:
-        return jsonify({'error': 'No image file found'}), 400
+        return jsonify({'error': 'No image uploaded.'}), 400
 
     image = request.files['img']
     filename = f"{uuid.uuid4().hex}_{image.filename}"
@@ -109,20 +73,11 @@ def upload():
         "image_url": request.url_root + 'uploadimages/' + filename
     })
 
-@app.route('/', methods=['GET'])
-def root():
-    return jsonify({"message": "Plant Disease Prediction API 🌿"}), 200
+@app.route('/uploadimages/<filename>')
+def serve_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
-
+# --- MAIN ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model from Google Drive...")
-    os.makedirs("models", exist_ok=True)
-    gdown.download(f"https://drive.google.com/uc?id={DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
-
-else:
-    print("Model already exists — skipping download.")
-
