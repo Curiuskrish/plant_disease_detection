@@ -8,7 +8,7 @@ from flask_cors import CORS
 import gdown
 
 # --- CONFIGURATION ---
-MODEL_PATH = "models/plant_disease_model.keras"  # Ensure it's Keras 3 compatible
+MODEL_PATH = "plant_disease_model.h5"  # Changed to .h5 for compatibility
 DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
@@ -20,9 +20,9 @@ if not os.path.exists(MODEL_PATH):
     url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
     gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
 
-    # Validate model size
+    # Validate file size
     if os.path.getsize(MODEL_PATH) < 1000000:
-        raise ValueError("Downloaded file is too small. Check the Google Drive file permissions and format.")
+        raise ValueError("Downloaded file is too small. Check Google Drive file permissions and format.")
 else:
     print("✅ Model already exists.")
 
@@ -55,13 +55,15 @@ labels = list(plant_disease.values())
 def extract_features(image_path):
     image = tf.keras.utils.load_img(image_path, target_size=(160, 160))
     img_array = tf.keras.utils.img_to_array(image)
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+    img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
 def predict(image_path):
     features = extract_features(image_path)
     prediction = model.predict(features)
     index = int(np.argmax(prediction))
+    
+    # Return full description from JSON if available
     label = labels[index] if index < len(labels) else "Unknown"
     description = plant_disease.get(str(index), {
         "name": label,
