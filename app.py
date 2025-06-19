@@ -9,7 +9,7 @@ import gdown
 
 # --- CONFIGURATION ---
 MODEL_PATH = "models/plant_disease_model.h5"  # Using .h5 format for better compatibility
-DRIVE_FILE_ID = "1FQawUM3MgYtEXAMPLE_ID_HERE"  # Replace with the actual .h5 model file ID from Google Drive
+DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"  # Replace with the actual .h5 model file ID from Google Drive
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
 
