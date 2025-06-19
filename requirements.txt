@@ -1,6 +1,6 @@
-setuptools>=65.5.0
-wheel
-build
+setuptools==68.2.2
+wheel==0.41.2
+build==1.0.3
 absl-py==2.3.0
 astunparse==1.6.3
 beautifulsoup4==4.13.4
