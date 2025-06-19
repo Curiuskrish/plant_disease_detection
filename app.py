@@ -8,7 +8,7 @@ from flask_cors import CORS
 import gdown
 
 # --- CONFIGURATION ---
-MODEL_PATH = "models/plant_disease_model.keras"  # Changed from .h5 to .keras
+MODEL_PATH = "models/plant_disease_model.keras"  # Ensure it's Keras 3 compatible
 DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
@@ -20,18 +20,18 @@ if not os.path.exists(MODEL_PATH):
     url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
     gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
 
-    # Validate if the model is an actual Keras file
-    if os.path.getsize(MODEL_PATH) < 1000000:  # ~1MB is suspicious
-        raise ValueError("Downloaded file is too small. Check Google Drive file format and permissions.")
+    # Validate model size
+    if os.path.getsize(MODEL_PATH) < 1000000:
+        raise ValueError("Downloaded file is too small. Check the Google Drive file permissions and format.")
 else:
-    print("✅ Model already exists. Skipping download.")
+    print("✅ Model already exists.")
 
 # --- APP INITIALIZATION ---
 app = Flask(__name__)
 CORS(app)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- LOAD MODEL & LABELS ---
+# --- LOAD MODEL ---
 print("🔁 Loading model...")
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
@@ -41,8 +41,13 @@ except Exception as e:
     raise
 
 # --- LOAD LABELS ---
-with open(LABELS_PATH, 'r') as f:
-    plant_disease = json.load(f)
+try:
+    with open(LABELS_PATH, 'r') as f:
+        plant_disease = json.load(f)
+    print("✅ Labels loaded.")
+except Exception as e:
+    print("❌ Failed to load labels:", str(e))
+    raise
 
 labels = list(plant_disease.values())
 
@@ -50,7 +55,7 @@ labels = list(plant_disease.values())
 def extract_features(image_path):
     image = tf.keras.utils.load_img(image_path, target_size=(160, 160))
     img_array = tf.keras.utils.img_to_array(image)
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
     return img_array
 
 def predict(image_path):
@@ -58,13 +63,17 @@ def predict(image_path):
     prediction = model.predict(features)
     index = int(np.argmax(prediction))
     label = labels[index] if index < len(labels) else "Unknown"
-    description = plant_disease.get(str(index), "No description available.")
-    return label, description
+    description = plant_disease.get(str(index), {
+        "name": label,
+        "cause": "Unknown cause",
+        "cure": "No cure information available."
+    })
+    return description
 
 # --- ROUTES ---
 @app.route('/')
 def home():
-    return jsonify({"message": "🌿 Plant Disease Detection API running successfully"}), 200
+    return jsonify({"message": "🌿 Plant Disease Detection API is running."}), 200
 
 @app.route('/upload/', methods=['POST'])
 def upload_image():
@@ -76,11 +85,12 @@ def upload_image():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     image.save(filepath)
 
-    label, description = predict(filepath)
+    prediction = predict(filepath)
 
     return jsonify({
-        "prediction": label,
-        "description": description,
+        "prediction": prediction['name'],
+        "cause": prediction['cause'],
+        "cure": prediction['cure'],
         "image_url": request.url_root + 'uploadimages/' + filename
     })
 
@@ -90,5 +100,5 @@ def serve_image(filename):
 
 # --- MAIN ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render uses PORT env
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
