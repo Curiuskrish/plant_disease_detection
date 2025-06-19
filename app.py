@@ -8,7 +8,7 @@ from flask_cors import CORS
 import gdown
 
 # --- CONFIGURATION ---
-MODEL_PATH = "models/plant_disease_model.h5"
+MODEL_PATH = "models/plant_disease_model.keras"  # Changed from .h5 to .keras
 DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
@@ -20,9 +20,9 @@ if not os.path.exists(MODEL_PATH):
     url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
     gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
 
-    # Validate if the model is an actual HDF5 file
-    if os.path.getsize(MODEL_PATH) < 1000000:  # less than ~1MB is suspicious
-        raise ValueError("Downloaded file is too small. Likely not a valid model. Check Google Drive permissions.")
+    # Validate if the model is an actual Keras file
+    if os.path.getsize(MODEL_PATH) < 1000000:  # ~1MB is suspicious
+        raise ValueError("Downloaded file is too small. Check Google Drive file format and permissions.")
 else:
     print("✅ Model already exists. Skipping download.")
 
@@ -40,6 +40,7 @@ except Exception as e:
     print("❌ Error loading model:", str(e))
     raise
 
+# --- LOAD LABELS ---
 with open(LABELS_PATH, 'r') as f:
     plant_disease = json.load(f)
 
