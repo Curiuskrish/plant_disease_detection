@@ -8,21 +8,19 @@ from flask_cors import CORS
 import gdown
 
 # --- CONFIGURATION ---
-MODEL_PATH = "plant_disease_model.h5"  # Changed to .h5 for compatibility
+MODEL_PATH = "plant_disease_model.h5"  # Flat structure - model in root
 DRIVE_FILE_ID = "1qDqeP1rHcawATIR4sv3WRULHJUh-FUFO"
 UPLOAD_FOLDER = "uploadimages"
 LABELS_PATH = "plant_disease.json"
 
-# --- DOWNLOAD MODEL SAFELY ---
+# --- DOWNLOAD MODEL IF NOT EXISTS ---
 if not os.path.exists(MODEL_PATH):
     print("🔄 Downloading model from Google Drive...")
-    os.makedirs("models", exist_ok=True)
     url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
     gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
 
-    # Validate file size
-    if os.path.getsize(MODEL_PATH) < 1000000:
-        raise ValueError("Downloaded file is too small. Check Google Drive file permissions and format.")
+    if os.path.getsize(MODEL_PATH) < 1_000_000:
+        raise ValueError("❌ Downloaded file too small. Likely not a valid model. Check permissions.")
 else:
     print("✅ Model already exists.")
 
@@ -37,7 +35,7 @@ try:
     model = tf.keras.models.load_model(MODEL_PATH)
     print("✅ Model loaded successfully.")
 except Exception as e:
-    print("❌ Error loading model:", str(e))
+    print("❌ Failed to load model:", str(e))
     raise
 
 # --- LOAD LABELS ---
@@ -55,21 +53,20 @@ labels = list(plant_disease.values())
 def extract_features(image_path):
     image = tf.keras.utils.load_img(image_path, target_size=(160, 160))
     img_array = tf.keras.utils.img_to_array(image)
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+    return np.expand_dims(img_array, axis=0)
 
 def predict(image_path):
     features = extract_features(image_path)
     prediction = model.predict(features)
     index = int(np.argmax(prediction))
-    
-    # Return full description from JSON if available
     label = labels[index] if index < len(labels) else "Unknown"
+
     description = plant_disease.get(str(index), {
         "name": label,
         "cause": "Unknown cause",
         "cure": "No cure information available."
     })
+
     return description
 
 # --- ROUTES ---
